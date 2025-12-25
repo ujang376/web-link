@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servisika - Jasa Servis Alat Fitness</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .transition-all { transition: all 0.3s ease; }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        
+        /* Image Swipe Styles */
+        .image-slider {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+        }
+        .image-slider img {
+            scroll-snap-align: start;
+            flex-shrink: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Animations */
+        @keyframes pulse-fire {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .animate-fire { animation: pulse-fire 1.5s infinite; }
+        
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(185, 28, 28, 0.95); z-index: 9999;
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
+            color: white; transition: opacity 0.5s;
+        }
+        
+        /* Error Modal Style */
+        .error-modal {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 450px;
+            background: #ef4444; color: white;
+            padding: 1.25rem; rounded: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 10000;
+            display: none;
+            animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 2px solid #fecaca;
+        }
+        @keyframes slideUp { from { transform: translate(-50%, 120%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+    </style>
+</head>
+<body class="bg-red-700 text-white antialiased min-h-screen relative overflow-x-hidden">
+
+    <!-- Loading Screen -->
+    <div id="dbLoader" class="loading-overlay hidden">
+        <i data-lucide="loader-2" class="w-10 h-10 animate-spin mb-2"></i>
+        <p class="text-sm font-medium" id="loaderText">Menghubungkan ke Server...</p>
+    </div>
+
+    <!-- Error Modal (Penting buat debugging user) -->
+    <div id="errorModal" class="error-modal">
+        <div class="flex items-start gap-3">
+            <div class="bg-white/20 p-2 rounded-full shrink-0">
+                <i data-lucide="alert-triangle" class="w-6 h-6 text-white"></i>
+            </div>
+            <div class="w-full">
+                <h3 class="font-bold text-base mb-1" id="errorTitle">Koneksi Gagal</h3>
+                <p class="text-xs opacity-90 leading-relaxed mb-2" id="errorModalMsg">
+                    Terjadi kesalahan saat menghubungkan ke database.
+                </p>
+                <div id="domainHint" class="hidden bg-black/40 p-2.5 rounded-lg mb-3">
+                    <p class="text-[10px] font-mono text-yellow-300 mb-1">Domain ini diblokir Firebase:</p>
+                    <code class="text-[10px] font-mono block break-all font-bold" id="currentDomain"></code>
+                    <p class="text-[9px] mt-1 opacity-80">Tambahkan domain di atas ke Auth > Settings > Authorized Domains</p>
+                </div>
+                <button onclick="document.getElementById('errorModal').style.display='none'" class="w-full bg-white text-red-600 font-bold py-2 rounded text-xs hover:bg-gray-100 transition-colors">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Text -->
+    <div class="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0">
+        <h1 class="text-[5rem] md:text-[8rem] font-bold text-white opacity-[0.05] rotate-[-12deg] whitespace-nowrap tracking-tighter select-none">
+            The White Red Indonesian servis
+        </h1>
+    </div>
+
+    <!-- Main Container -->
+    <div class="max-w-xl mx-auto px-6 py-12 min-h-screen flex flex-col items-center w-full z-10 relative">
+        
+        <!-- Back Button -->
+        <button id="backBtn" onclick="setView('home')" class="absolute top-6 left-6 p-2 rounded-full backdrop-blur-sm bg-white/20 text-white hover:bg-white/30 transition-all hidden z-50">
+            <i data-lucide="arrow-left" class="w-6 h-6"></i>
+        </button>
+
+        <!-- Header Profile -->
+        <div id="globalProfileHeader" class="w-full flex flex-col items-center text-center mb-8 relative mt-12">
+            <div class="relative mb-4">
+                <img src="https://pleasant-aquamarine-hwacnnnruw-mt0w3oe39a.edgeone.app/1765337276592.jpg" 
+                     alt="Servisika" 
+                     class="w-28 h-28 rounded-full object-cover shadow-2xl ring-4 ring-white/80 shadow-red-900/20">
+            </div>
+            <h1 id="pageTitle" class="text-2xl font-bold tracking-tight mb-2 text-white drop-shadow-sm">Servisika</h1>
+            <div id="homeProfileInfo">
+                <p class="text-sm max-w-md mx-auto leading-relaxed opacity-90 font-medium whitespace-pre-line text-white/90">
+                    🇮🇩 SERVISIKA servisnya alat fitness 🔥
+📍 Jabodetabek 📍 Bandung
+💯 Transparan - Profesional - Bertanggung jawab
+                </p>
+                <div class="flex items-center gap-4 mt-6 justify-center">
+                    <a href="https://youtube.com/@servisika" target="_blank" class="transition-transform hover:scale-110 p-2 rounded-full text-white hover:bg-white/10"><i data-lucide="youtube" class="w-6 h-6"></i></a>
+                    <a href="https://www.instagram.com/servisika/" target="_blank" class="transition-transform hover:scale-110 p-2 rounded-full text-white hover:bg-white/10"><i data-lucide="instagram" class="w-6 h-6"></i></a>
+                    <a href="https://www.tiktok.com/@rotasi_tehnik" target="_blank" class="transition-transform hover:scale-110 p-2 rounded-full text-white hover:bg-white/10"><img src="https://img.icons8.com/?size=100&id=QEblvzUroh89&format=png&color=FFFFFF" alt="TikTok" class="w-6 h-6 object-contain scale-125"></a>
+                    <a href="https://www.facebook.com/servisika" target="_blank" class="transition-transform hover:scale-110 p-2 rounded-full text-white hover:bg-white/10"><i data-lucide="facebook" class="w-6 h-6"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <!-- REKOMENDASI HEADER -->
+        <div id="recommendationHeader" class="w-full flex flex-col items-center mb-6 mt-16 hidden animate-in fade-in slide-in-from-top-4">
+            <h2 class="text-2xl font-bold text-white mb-6 drop-shadow-md">Katalog Produk Live</h2>
+            
+            <!-- Notif Live Indicator -->
+            <div class="flex items-center gap-2 mb-4 bg-black/20 px-3 py-1 rounded-full border border-white/10 transition-colors duration-300" id="liveStatusContainer">
+                <span class="relative flex h-2 w-2">
+                  <span id="pingDot" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span id="staticDot" class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                <span id="liveStatusText" class="text-[10px] font-medium tracking-wide opacity-80 uppercase">Menghubungkan...</span>
+            </div>
+
+            <div class="w-full relative mb-4">
+                <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Cari alat fitness..." 
+                    class="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:bg-white/20 focus:border-white/50 transition-all backdrop-blur-sm">
+                <i data-lucide="search" class="w-5 h-5 text-white/60 absolute left-3 top-3.5"></i>
+            </div>
+
+            <div class="flex items-center justify-center gap-4 w-full mb-4">
+                <button onclick="setMarketplaceFilter('all')" id="btn-mkt-all" class="flex-1 py-2 rounded-lg text-sm font-bold border border-white/30 bg-white text-red-700 transition-all hover:bg-gray-100">Semua</button>
+                <button onclick="setMarketplaceFilter('tokopedia')" id="btn-mkt-tokopedia" class="flex-1 py-2 rounded-lg text-sm font-bold border border-white/30 bg-transparent text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2"><img src="https://upload.wikimedia.org/wikipedia/commons/a/a7/Tokopedia.svg" class="w-4 h-4 object-contain brightness-0 invert"> Tokopedia</button>
+                <button onclick="setMarketplaceFilter('shopee')" id="btn-mkt-shopee" class="flex-1 py-2 rounded-lg text-sm font-bold border border-white/30 bg-transparent text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2"><img src="https://upload.wikimedia.org/wikipedia/commons/f/fe/Shopee.svg" class="w-4 h-4 object-contain brightness-0 invert"> Shopee</button>
+            </div>
+
+            <div class="w-full flex flex-col gap-3 mb-4">
+                <div class="w-full relative">
+                    <select id="budgetFilter" onchange="applyFilters()" class="w-full appearance-none bg-white/10 border border-white/30 text-white text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:bg-white/20">
+                        <option value="all" class="bg-red-800">💰 Semua Budget</option>
+                        <option value="low" class="bg-red-800">📉 Di bawah 2 Juta</option>
+                        <option value="mid" class="bg-red-800">⚖️ 2 Juta - 5 Juta</option>
+                        <option value="high" class="bg-red-800">📈 Di atas 5 Juta</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="absolute right-3 top-3 w-4 h-4 text-white/70 pointer-events-none"></i>
+                </div>
+                <div class="w-full overflow-x-auto no-scrollbar">
+                    <div class="flex gap-2 min-w-max px-1" id="categoryContainer"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEWS -->
+
+        <!-- Home -->
+        <div id="view-home" class="view-section active w-full space-y-4">
+            <button onclick="setView('jakarta')" class="block w-full p-4 rounded-xl bg-white border-red-100 shadow-lg text-gray-900 font-medium text-center transition-all hover:scale-[1.02]">Informasi dan Layanan Kami</button>
+            <button onclick="setView('useful-content')" class="block w-full p-4 rounded-xl bg-white border-red-100 shadow-lg text-gray-900 font-medium text-center transition-all hover:scale-[1.02]">Konten Bermanfaat</button>
+            
+            <div class="py-6 flex flex-col items-center">
+                <p class="text-center font-medium mb-4 text-sm opacity-90 text-white">Rekomendasi merek dan produk alat fitness</p>
+                <div class="flex items-center gap-6">
+                    <button onclick="setView('recommendations', 'tokopedia')" class="bg-white p-3 rounded-2xl shadow-xl hover:scale-110 transition-transform duration-200 w-20 h-20 flex flex-col items-center justify-center gap-1 group">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a7/Tokopedia.svg" alt="Tokopedia" class="w-8 h-8 object-contain mb-1">
+                        <span class="text-[10px] text-gray-600 font-bold">Tokopedia</span>
+                    </button>
+                    <button onclick="setView('recommendations', 'shopee')" class="bg-white p-3 rounded-2xl shadow-xl hover:scale-110 transition-transform duration-200 w-20 h-20 flex flex-col items-center justify-center gap-1 group">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/f/fe/Shopee.svg" alt="Shopee" class="w-8 h-8 object-contain mb-1">
+                        <span class="text-[10px] text-orange-600 font-bold">Shopee</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="relative group/card mt-4">
+                <a href="https://wa.me/6282260879593?text=Halo%20Admin%20Servisika,%20saya%20mau%20konsultasi%20servis." target="_blank" class="block w-full p-4 rounded-xl transition-all duration-300 flex justify-between items-center hover:scale-[1.02] active:scale-95 bg-white border-red-100 shadow-lg text-gray-900">
+                    <span class="font-medium text-center w-full flex items-center justify-center gap-2">Chat WhatsApp Admin <i data-lucide="external-link" class="w-3 h-3 text-red-500 opacity-50"></i></span>
+                </a>
+            </div>
+
+            <div class="mt-12 mb-6 text-center">
+                <span class="text-xs font-semibold opacity-60 text-white/80">&copy; <span id="year"></span> Servisika</span>
+            </div>
+        </div>
+
+        <!-- Jakarta -->
+        <div id="view-jakarta" class="view-section w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div class="w-full p-6 rounded-2xl mb-6 shadow-xl bg-white/10 border border-white/20">
+                <h2 class="text-xl font-bold mb-4 text-center text-yellow-300 drop-shadow-md">JABODETABEK LUAS BANGET, BOSKU! 😅</h2>
+                <div class="text-sm leading-relaxed whitespace-pre-wrap font-medium space-y-4">Biar sama-sama enak dan transparan, ini kebijakan harga servis kami ya:
+
+✅ DKI Jakarta & Perbatasan (Radius Dekat): Tarif Standar: Rp 250.000 (Sudah termasuk transport).
+
+🛵 Area 'Ujung' (Bogor Kota/Kab, Cikarang, Karawang, Balaraja): Ada tambahan Biaya Operasional (Transport + Waktu) mulai dari Rp 50rb - 100rb tergantung jarak di Google Maps.
+
+Kenapa ada biaya tambahan? Karena kami memperhitungkan Resiko Garansi. Kalau (amit-amit) ada masalah lagi, kami harus siap datang lagi ke lokasi yang jauh itu tanpa minta bayaran servis ulang. Jadi biaya di awal itu semacam 'asuransi' jarak tempuh teknisi.
+
+Setuju? Gas langsung DM!</div>
+            </div>
+            <button onclick="setView('bandung')" class="w-full p-4 rounded-xl font-bold bg-white text-red-700 mb-4 shadow-lg hover:scale-[1.02] active:scale-95 transition-all">Lihat Informasi Layanan Bandung 👉</button>
+            <div id="subPageFooter-jakarta"></div>
+        </div>
+
+        <!-- Bandung -->
+        <div id="view-bandung" class="view-section w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div class="w-full p-6 rounded-2xl mb-6 shadow-xl bg-white/10 border border-white/20">
+                <h2 class="text-xl font-bold mb-4 text-center text-yellow-300 drop-shadow-md">SAMPURASUN WARGI BANDUNG! 👋 Akhirnya Kami Hadir di Surapati!</h2>
+                <div class="text-sm leading-relaxed whitespace-pre-wrap font-medium space-y-4">Biar akang/teteh servisnya nyaman dan kami kerjanya maksimal, ini info penting soal jangkauan servis kami ya (Start dari Workshop: Jl. Surapati):
+
+✅ AREA 'KOTA' (Zona Aman): Tarif Standar: Rp 250.000 (Sudah free transport). Cakupannya: Dago, Dipatiukur, Antapani, Arcamanik, Buah Batu, Kiaracondong, Pasteur, sampai Alun-Alun. Pokoknya selama masih masuk Kodya Bandung, sikat!
+
+🛵 AREA 'CORET' / KABUPATEN (Zona Extra): (Contoh: Cimahi, Ujung Berung, Cibiru, Dayeuhkolot, Lembang Atas) Mohon maaf ada Tambahan Transport mulai Rp 25rb - 50rb ya.
+
+Kenapa harus nambah? Jujur-jujuran aja nih Kang/Teh, karena tim teknisi kami di Bandung slotnya masih terbatas (Limited Slot). Jarak yang jauh memakan waktu perjalanan lumayan, plus kami harus pastikan Garansi tetap aman. Kalau nanti (amit-amit) perlu balik lagi, kami siap meluncur tanpa pusing mikirin bensin lagi.
+
+Jadi biaya extra ini buat 'mengamankan' kenyamanan akang/teteh juga sampai tuntas! 👌
+
+Setuju? Mangga di-WA adminnya buat jadwalin!</div>
+            </div>
+            <button onclick="setView('jakarta')" class="w-full p-4 rounded-xl font-bold bg-white text-red-700 mb-4 shadow-lg hover:scale-[1.02] active:scale-95 transition-all">👈 Lihat Informasi Layanan Jabodetabek</button>
+            <div id="subPageFooter-bandung"></div>
+        </div>
+
+        <!-- Useful Content -->
+        <div id="view-useful-content" class="view-section w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div class="w-full p-6 rounded-2xl mb-6 shadow-xl bg-white/10 border border-white/20">
+                <div class="flex flex-col gap-4">
+                    <div class="text-center mb-4">
+                        <i data-lucide="book-open" class="w-12 h-12 mx-auto mb-2 text-yellow-300"></i>
+                        <p class="text-sm opacity-90">Tips perawatan dan penggunaan alat fitness yang baik dan benar.</p>
+                    </div>
+                    <div id="contentList" class="flex flex-col gap-4"></div>
+                    <p class="text-center text-xs opacity-60 mt-4">Konten lainnya akan segera hadir.</p>
+                </div>
+            </div>
+            <div id="subPageFooter-useful"></div>
+        </div>
+
+        <!-- Recommendations -->
+        <div id="view-recommendations" class="view-section w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div id="productGrid" class="grid grid-cols-2 gap-3 pb-12 min-h-[300px]"></div>
+            <div id="emptyState" class="hidden flex-col items-center justify-center py-12 text-center opacity-70">
+                <i data-lucide="search-x" class="w-12 h-12 mb-2 text-white/50"></i>
+                <p class="text-sm">Produk tidak ditemukan.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer Template -->
+    <template id="footerTemplate">
+        <div class="mt-4 w-full">
+            <a href="https://wa.me/6282260879593" target="_blank" class="block w-full p-4 rounded-xl font-bold shadow-lg bg-green-500 text-white flex items-center justify-center gap-2">
+                <i data-lucide="message-circle" class="w-5 h-5"></i> Chat Admin WhatsApp
+            </a>
+        </div>
+        <div class="mt-8 mb-4 w-full flex justify-center gap-6" id="footerSocials">
+             <a href="https://youtube.com/@servisika" target="_blank" class="text-white hover:text-yellow-300 hover:scale-110 transition-all"><i data-lucide="youtube" class="w-6 h-6"></i></a>
+             <a href="https://www.instagram.com/servisika/" target="_blank" class="text-white hover:text-yellow-300 hover:scale-110 transition-all"><i data-lucide="instagram" class="w-6 h-6"></i></a>
+             <a href="https://www.tiktok.com/@rotasi_tehnik" target="_blank" class="text-white hover:text-yellow-300 hover:scale-110 transition-all"><img src="https://img.icons8.com/?size=100&id=QEblvzUroh89&format=png&color=FFFFFF" alt="TikTok" class="w-6 h-6 object-contain"></a>
+             <a href="https://www.facebook.com/servisika" target="_blank" class="text-white hover:text-yellow-300 hover:scale-110 transition-all"><i data-lucide="facebook" class="w-6 h-6"></i></a>
+        </div>
+        <div class="w-full pt-4 border-t border-white/20 flex flex-col items-center">
+            <div id="branchAddressList" class="grid gap-4 w-full"></div>
+        </div>
+    </template>
+
+    <!-- FIREBASE & APP LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"; 
+        import { getFirestore, doc, onSnapshot, updateDoc, increment, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // =================================================================================
+        // ⚠️ CONFIG FIREBASE (User Version)
+        // =================================================================================
+        const YOUR_FIREBASE_CONFIG = {
+          apiKey: "AIzaSyBNKp_3K_0AbIOzmcwY4uLWsmTJWs2B19g",
+          authDomain: "webservisika.firebaseapp.com",
+          projectId: "webservisika",
+          storageBucket: "webservisika.firebasestorage.app",
+          messagingSenderId: "438373725186",
+          appId: "1:438373725186:web:c0d91388dfda903042231b"
+        };
+
+        const firebaseConfig = (typeof __firebase_config !== 'undefined') 
+            ? JSON.parse(__firebase_config) 
+            : YOUR_FIREBASE_CONFIG;
+
+        let db; 
+        let auth;
+        let isDbConnected = false;
+        let globalTrendData = {}; 
+
+        // --- SISTEM RESET MINGGUAN OTOMATIS ---
+        function getCurrentWeekKey() {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = now - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const day = Math.floor(diff / oneDay);
+            const week = Math.floor((day + start.getDay() + 1) / 7);
+            return `clicks_${now.getFullYear()}_w${week}`;
+        }
+        
+        const WEEKLY_KEY = getCurrentWeekKey(); 
+
+        // --- INIT FIREBASE ---
+        async function initFirebase() {
+            try {
+                if(firebaseConfig.projectId !== "ISI_PROJECT_ID") {
+                    const app = initializeApp(firebaseConfig);
+                    auth = getAuth(app); 
+                    db = getFirestore(app);
+                    
+                    const loader = document.getElementById('dbLoader');
+                    loader.classList.remove('hidden');
+
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            console.log("Authenticated as:", user.uid);
+                            isDbConnected = true;
+                            loader.classList.add('hidden');
+                            listenToLiveTrends();
+                        } else {
+                            signInAnonymously(auth).catch(handleAuthError);
+                        }
+                    });
+
+                } else {
+                    console.warn("Firebase Config belum diisi.");
+                }
+            } catch (e) {
+                console.error("Error init Firebase:", e);
+                document.getElementById('dbLoader').classList.add('hidden');
+            }
+        }
+
+        function handleAuthError(error) {
+            console.error("Auth Error:", error);
+            const loader = document.getElementById('dbLoader');
+            const errorModal = document.getElementById('errorModal');
+            const modalTitle = document.getElementById('errorTitle');
+            const modalMsg = document.getElementById('errorModalMsg');
+            const domainHint = document.getElementById('domainHint');
+            const currentDomainEl = document.getElementById('currentDomain');
+
+            // ERROR 1: DOMAIN TIDAK DIIZINKAN (INI YANG SERING BIKIN GAGAL TERUS)
+            if (error.code === 'auth/unauthorized-domain') {
+                modalTitle.innerText = "Domain Website Diblokir";
+                modalMsg.innerText = "Firebase belum mengizinkan website ini mengakses database. Ini normal untuk preview/testing.";
+                currentDomainEl.innerText = window.location.hostname;
+                domainHint.classList.remove('hidden');
+                errorModal.style.display = 'block';
+            }
+            // ERROR 2: LOGIN ANONIM BELUM AKTIF
+            else if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
+                modalTitle.innerText = "Fitur Login Mati";
+                modalMsg.innerHTML = "Buka Firebase Console > <b>Authentication</b> > Sign-in method > <b>Aktifkan Anonymous</b>.";
+                domainHint.classList.add('hidden');
+                errorModal.style.display = 'block';
+            }
+            
+            loader.classList.add('hidden');
+        }
+
+        // Panggil Init
+        initFirebase();
+
+        // --- FUNGSI LIVE DATA ---
+        
+        function listenToLiveTrends() {
+            if (!isDbConnected) return;
+            
+            const statsDocRef = doc(db, "products_stats", "weekly_data");
+            
+            onSnapshot(statsDocRef, (docSnap) => {
+                updateLiveStatus("active");
+                document.getElementById('errorModal').style.display = 'none'; 
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    globalTrendData = data[WEEKLY_KEY] || {};
+                    if (document.getElementById('view-recommendations').classList.contains('active')) {
+                        applyFilters(); 
+                    }
+                }
+            }, (error) => {
+                console.error("Error listening to trends:", error);
+                
+                // ERROR 3: RULES SALAH / PERMISSION DENIED
+                if (error.code === 'permission-denied') {
+                    updateLiveStatus("error_rules");
+                    const errorModal = document.getElementById('errorModal');
+                    document.getElementById('errorTitle').innerText = "Akses Database Ditolak";
+                    document.getElementById('errorModalMsg').innerHTML = 
+                        "Database terkunci. Anda wajib mengatur <b>Rules</b> di Firebase Console.<br>Lihat instruksi di chat.";
+                    document.getElementById('domainHint').classList.add('hidden');
+                    errorModal.style.display = 'block';
+                }
+            });
+        }
+
+        function updateLiveStatus(status) {
+            const textEl = document.getElementById('liveStatusText');
+            const dotPing = document.getElementById('pingDot');
+            const dotStatic = document.getElementById('staticDot');
+            
+            if (status === 'active') {
+                textEl.innerText = "Data Realtime Aktif";
+                dotPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75";
+                dotStatic.className = "relative inline-flex rounded-full h-2 w-2 bg-green-500";
+            } else if (status === 'error_rules') {
+                textEl.innerText = "Akses Ditolak (Rules)";
+                dotPing.className = "hidden";
+                dotStatic.className = "relative inline-flex rounded-full h-2 w-2 bg-red-500";
+            }
+        }
+
+        async function trackProductClick(productId, productLink) {
+            window.open(productLink, '_blank'); 
+
+            if (!isDbConnected) return;
+
+            const statsDocRef = doc(db, "products_stats", "weekly_data");
+            
+            try {
+                const fieldPath = `${WEEKLY_KEY}.${productId}`;
+                const docSnap = await getDoc(statsDocRef);
+                
+                if (!docSnap.exists()) {
+                    await setDoc(statsDocRef, { [WEEKLY_KEY]: { [productId]: 1 } });
+                } else {
+                    await updateDoc(statsDocRef, {
+                        [fieldPath]: increment(1)
+                    });
+                }
+                console.log("Click recorded for ID:", productId);
+            } catch (e) {
+                console.error("Gagal update klik:", e);
+            }
+        }
+
+        function calculateDynamicTrendLevel(productId) {
+            const myClicks = globalTrendData[productId] || 0;
+            let maxClicks = 0;
+            for (let key in globalTrendData) {
+                if (globalTrendData[key] > maxClicks) maxClicks = globalTrendData[key];
+            }
+
+            if (maxClicks === 0) return 0; 
+            let level = Math.ceil((myClicks / maxClicks) * 10);
+            return level;
+        }
+
+        // --- LOGIKA APP STANDAR ---
+
+        window.setView = function(viewName, filterParam = null) {
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById('view-' + viewName);
+            if (target) target.classList.add('active');
+
+            const backBtn = document.getElementById('backBtn');
+            const globalHeader = document.getElementById('globalProfileHeader');
+            const recHeader = document.getElementById('recommendationHeader');
+
+            if (viewName === 'home') {
+                backBtn.classList.add('hidden');
+                globalHeader.classList.remove('hidden');
+                recHeader.classList.add('hidden');
+            } 
+            else if (viewName === 'recommendations') {
+                backBtn.classList.remove('hidden');
+                globalHeader.classList.add('hidden'); 
+                recHeader.classList.remove('hidden'); 
+                
+                if (filterParam) setMarketplaceFilter(filterParam);
+                else setMarketplaceFilter('all');
+            } 
+            else {
+                backBtn.classList.remove('hidden');
+                globalHeader.classList.remove('hidden');
+                recHeader.classList.add('hidden');
+            }
+            window.scrollTo(0, 0);
+        };
+
+        window.setMarketplaceFilter = function(mkt) {
+            window.currentMarketplace = mkt;
+            ['all', 'tokopedia', 'shopee'].forEach(id => {
+                const btn = document.getElementById(`btn-mkt-${id}`);
+                if (id === mkt) {
+                    btn.className = "flex-1 py-2 rounded-lg text-sm font-bold border border-white bg-white text-red-700 transition-all flex items-center justify-center gap-2 shadow-lg scale-105";
+                    const img = btn.querySelector('img');
+                    if(img) img.classList.remove('brightness-0', 'invert');
+                } else {
+                    btn.className = "flex-1 py-2 rounded-lg text-sm font-bold border border-white/30 bg-transparent text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2 opacity-70";
+                    const img = btn.querySelector('img');
+                    if(img) img.classList.add('brightness-0', 'invert');
+                }
+            });
+            window.applyFilters();
+        };
+
+        window.setCategoryFilter = function(catId) {
+            window.currentCategory = catId;
+            renderCategories(); 
+            window.applyFilters();
+        };
+
+        window.applyFilters = function() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const budgetFilter = document.getElementById('budgetFilter').value;
+            
+            const productsWithTrend = PRODUCTS.map(p => ({
+                ...p,
+                currentTrend: calculateDynamicTrendLevel(p.id)
+            }));
+
+            const filtered = productsWithTrend.filter(p => {
+                const matchMkt = window.currentMarketplace === 'all' || p.marketplace === window.currentMarketplace;
+                const matchCat = window.currentCategory === 'all' || p.category === window.currentCategory;
+                const matchSearch = p.name.toLowerCase().includes(query);
+                
+                let matchBudget = true;
+                if (budgetFilter === 'low') matchBudget = p.price < 2000000;
+                else if (budgetFilter === 'mid') matchBudget = p.price >= 2000000 && p.price <= 5000000;
+                else if (budgetFilter === 'high') matchBudget = p.price > 5000000;
+
+                return matchMkt && matchCat && matchSearch && matchBudget;
+            });
+
+            filtered.sort((a, b) => b.currentTrend - a.currentTrend);
+            renderProducts(filtered);
+        };
+
+        window.handleProductClick = function(id, link) {
+            trackProductClick(id, link);
+        };
+
+        function renderCategories() {
+            const container = document.getElementById('categoryContainer');
+            container.innerHTML = '';
+            CATEGORIES.forEach(cat => {
+                const btn = document.createElement('button');
+                const isActive = window.currentCategory === cat.id;
+                btn.onclick = () => window.setCategoryFilter(cat.id);
+                btn.className = `px-4 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                    isActive ? 'bg-white text-red-700 border-white shadow-md' : 'bg-transparent text-white border-white/30 hover:bg-white/10'
+                }`;
+                btn.innerText = cat.label;
+                container.appendChild(btn);
+            });
+        }
+
+        function renderProducts(items) {
+            const grid = document.getElementById('productGrid');
+            const emptyState = document.getElementById('emptyState');
+            grid.innerHTML = '';
+            
+            if (items.length === 0) {
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+            } else {
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+            }
+
+            items.forEach(p => {
+                let fireColor = '', intensityText = '', animationClass = '', fireOpacity = 'opacity-100';
+                
+                if (p.currentTrend >= 8) { fireColor = 'text-red-600'; intensityText = 'HOT'; animationClass = 'animate-fire'; }
+                else if (p.currentTrend >= 5) { fireColor = 'text-orange-500'; intensityText = 'POPULER'; }
+                else if (p.currentTrend > 0) { fireColor = 'text-yellow-400'; intensityText = 'LUMAYAN'; }
+                else { fireColor = 'text-gray-300'; intensityText = 'BARU'; fireOpacity = 'opacity-70'; }
+
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl overflow-hidden shadow-lg border border-white/10 flex flex-col group transition-transform active:scale-95 cursor-pointer hover:shadow-2xl";
+                
+                card.onclick = () => window.handleProductClick(p.id, p.link);
+
+                card.innerHTML = `
+                    <div class="relative aspect-square bg-gray-100 overflow-hidden">
+                        <div class="absolute top-2 right-2 z-10 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm border border-gray-100 ${fireOpacity}">
+                            <i data-lucide="flame" class="w-3.5 h-3.5 ${fireColor} fill-current ${animationClass}"></i>
+                            <span class="text-[9px] font-extrabold text-gray-700">${intensityText}</span>
+                        </div>
+                        <div class="image-slider h-full no-scrollbar">
+                            ${p.images.map(img => `<img src="${img}" alt="${p.name}">`).join('')}
+                        </div>
+                        ${p.images.length > 1 ? '<div class="absolute bottom-2 right-2 bg-black/40 text-white text-[8px] px-2 py-0.5 rounded-full pointer-events-none backdrop-blur-sm">Geser &rsaquo;</div>' : ''}
+                    </div>
+                    <div class="p-3 flex flex-col flex-1">
+                        <div class="flex items-center gap-1.5 mb-1.5">
+                            <img src="${p.marketplace === 'shopee' ? 'https://upload.wikimedia.org/wikipedia/commons/f/fe/Shopee.svg' : 'https://upload.wikimedia.org/wikipedia/commons/a/a7/Tokopedia.svg'}" class="w-3.5 h-3.5 object-contain">
+                            <span class="text-[9px] uppercase tracking-wider font-bold text-gray-400">${p.marketplace}</span>
+                        </div>
+                        <h3 class="text-xs font-bold text-gray-800 line-clamp-2 leading-snug flex-1 mb-2">${p.name}</h3>
+                        <div class="mt-auto border-t border-gray-100 pt-2 flex items-center justify-between">
+                            <span class="text-[10px] font-medium text-gray-500">Cek Harga</span>
+                            <div class="bg-red-50 text-red-600 p-1 rounded-full"><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        // --- DATA INIT ---
+        window.currentMarketplace = 'all';
+        window.currentCategory = 'all';
+
+        const CATEGORIES = [
+            { id: 'all', label: 'Semua' },
+            { id: 'treadmill', label: 'Treadmill' },
+            { id: 'sepeda', label: 'Sepeda Statis' },
+            { id: 'multigym', label: 'Home Gym' },
+            { id: 'aksesoris', label: 'Aksesoris' },
+            { id: 'ringan', label: 'Yoga & Lainnya' }
+        ];
+
+        const PRODUCTS = [
+            { id: 1, name: "Sonix Incline Treadmill STR01 rekomen cuman 1 jutaan", category: "treadmill", marketplace: "shopee", price: 1800000, images: ["https://down-id.img.susercontent.com/file/id-11134207-8224t-micubc15xb7r35.webp", "https://down-id.img.susercontent.com/file/id-11134207-8224t-micubc15xb7r35.webp"], link: "https://s.shopee.co.id/4fpIbo8AEq" },
+            { id: 2, name: "T200WAM Treadmill Listrik || fitur melimpah di harga 2juta", category: "treadmill", marketplace: "shopee", price: 2500000, images: ["https://down-id.img.susercontent.com/file/id-11134207-8224v-mh7jcgkxdamgf7.webp", "https://down-id.img.susercontent.com/file/id-11134207-8224v-mh7jcgkxdamgf7.webp"], link: "https://s.shopee.co.id/qca2kZwpw" },
+            { id: 3, name: "Smart Treadmill Elektrik iReborn Zenius 6 jutaan", category: "treadmill", marketplace: "shopee", price: 6500000, images: ["https://down-id.img.susercontent.com/file/id-11134207-7ra0n-mb53txwm7ir8c1.webp", "https://down-id.img.susercontent.com/file/id-11134207-7ra0p-mdbls0yjlgtfac.webp"], link: "https://s.shopee.co.id/2LRNpTqlkH" },
+            { id: 4, name: "iReborn Venio yang bikin kamu susah muv one", category: "treadmill", marketplace: "shopee", price: 8000000, images: ["https://down-id.img.susercontent.com/file/id-11134207-8224o-mhfu1jpn8jkd1c.webp"], link: "https://s.shopee.co.id/3qGBcE851E" },
+            { id: 5, name: "treadmill rekomendasi", category: "treadmill", marketplace: "shopee", price: 3500000, images: ["https://down-id.img.susercontent.com/file/id-11134207-7ra0p-md4hwka0znms6f.webp", "https://down-id.img.susercontent.com/file/id-11134207-7ra0g-md4hwka0of3859.webp"], link: "https://s.shopee.co.id/8zyHlhazs8" },
+            { id: 10, name: "MultyGym 1sisi 150LBS iReborn Metro Official Store", category: "multigym", marketplace: "shopee", price: 5000000, images: ["https://down-id.img.susercontent.com/file/e6191c66c8ac493919d906a63ba7a431.webp"], link: "https://s.shopee.co.id/2VkraI3ACv?share_channel_code=1" },
+            { id: 11, name: "MultyGym 1sisi 150LBS iReborn Metro Bandung Store", category: "multigym", marketplace: "shopee", price: 5000000, images: ["https://down-id.img.susercontent.com/file/e6191c66c8ac493919d906a63ba7a431.webp"], link: "https://s.shopee.co.id/3fwoxYp39Z" },
+            { id: 12, name: "MultyGym 1sisi 150LBS iReborn Metro Surabaya Store", category: "multigym", marketplace: "shopee", price: 5000000, images: ["https://down-id.img.susercontent.com/file/e6191c66c8ac493919d906a63ba7a431.webp"], link: "https://s.shopee.co.id/8APEKboU1A?share_channel_code=1" },
+            { id: 13, name: "Treadmill Siena", category: "treadmill", marketplace: "shopee", price: 5000000, images: ["https://down-id.img.susercontent.com/file/id-11134207-7ra0n-mbnmz4885g9c1c.webp", "https://down-id.img.susercontent.com/file/id-11134207-7rasc-m59gdr6idx5i5b.webp"], link: "https://s.shopee.co.id/20ocf6Ke16" },
+            { id: 6, name: "Alat Fitness Tokopedia (Contoh Murah)", category: "treadmill", marketplace: "tokopedia", price: 1500000, images: ["https://upload.wikimedia.org/wikipedia/commons/a/a7/Tokopedia.svg"], link: "#" }
+        ];
+
+        function initApp() {
+            document.getElementById('year').innerText = new Date().getFullYear();
+            
+            // Render Useful Content
+            const list = document.getElementById('contentList');
+            const USEFUL_CONTENTS = [
+                { title: "Cara mengatasi treadmill mati total", description: "Tips ringan agar treadmill awet.", url: "https://youtu.be/hCfDyroCsC4?si=U27LXiZ691y5ZPvS" },
+                { title: "Hati-hati cara pelumasan yang keliru!!", description: "Tips ringan agar treadmill awet.", url: "https://youtube.com/shorts/Lbjon01avy4?si=cJBZlxChfQu_w3HZ" },
+                { title: "Suara cardio bike Bunyi berisik", description: "Tips ringan agar treadmill awet.", url: "https://youtube.com/shorts/Ny_q2kdtLok?si=OhgZqjkyFjAq8y1s" }
+            ];
+
+            USEFUL_CONTENTS.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "p-4 rounded-xl border border-white/20 text-white flex items-center gap-3 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors";
+                div.onclick = () => window.open(item.url, '_blank');
+                div.innerHTML = `<i data-lucide="play-circle" class="w-8 h-8 opacity-80 text-yellow-300"></i><div><h3 class="font-bold text-sm text-left">${item.title}</h3><p class="text-xs opacity-70 text-left">${item.description}</p></div>`;
+                list.appendChild(div);
+            });
+
+            // Inject Footers
+            const footerIds = ['subPageFooter-jakarta', 'subPageFooter-bandung', 'subPageFooter-useful'];
+            const BRANCH_ADDRESSES = [
+                { name: "Cabang Jakarta", address: "Sunter Jaya, Kec. Tj. Priok, Jkt Utara", mapUrl: "https://maps.app.goo.gl/iu9R16GdrVqtuxtz6" },
+                { name: "Cabang Bandung", address: "Jl. Surapati No.41, Kec. Cibeunying Kaler, Bandung", mapUrl: "https://maps.app.goo.gl/jzYW1g6PvZPG8jui9" }
+            ];
+
+            footerIds.forEach(id => {
+                const container = document.getElementById(id);
+                if(container) {
+                    const clone = document.getElementById('footerTemplate').content.cloneNode(true);
+                    const addrList = clone.querySelector('#branchAddressList');
+                    if (id !== 'subPageFooter-useful') {
+                        BRANCH_ADDRESSES.forEach(b => {
+                            const d = document.createElement('a');
+                            d.href = b.mapUrl;
+                            d.target = "_blank";
+                            d.className = "block p-4 rounded-xl border border-white/20 text-white bg-white/5 hover:bg-white/10 transition-colors";
+                            d.innerHTML = `<div class="flex items-center gap-2 font-bold text-yellow-300 text-sm"><i data-lucide="map-pin" class="w-3 h-3"></i>${b.name}</div><p class="text-[10px] opacity-80 mt-1">${b.address}</p>`;
+                            addrList.appendChild(d);
+                        });
+                    }
+                    container.appendChild(clone);
+                }
+            });
+
+            renderCategories();
+            lucide.createIcons();
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
